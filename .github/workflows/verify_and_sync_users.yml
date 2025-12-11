@@ -105,6 +105,9 @@ jobs:
 
     - name: Configure Runner SSH
       run: |
+        # Add to /etc/hosts to satisfy any proactive DNS checks
+        echo "127.0.0.1 vm1 vm2" | sudo tee -a /etc/hosts
+
         # Configure ~/.ssh/config to map 'vm1' and 'vm2' to localhost ports
         echo "Host vm1" >> ~/.ssh/config
         echo "  HostName 127.0.0.1"
@@ -119,6 +122,13 @@ jobs:
         echo "  StrictHostKeyChecking no"
         
         chmod 600 ~/.ssh/config
+
+        echo "--- Debug: ~/.ssh/config content ---"
+        cat ~/.ssh/config
+        echo "------------------------------------"
+        echo "--- Debug: /etc/hosts content ---"
+        cat /etc/hosts
+        echo "------------------------------------"
 
     - name: Make script executable
       run: chmod +x scripts/verify_and_sync_users.sh
