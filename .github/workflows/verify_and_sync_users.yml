@@ -25,7 +25,7 @@ jobs:
         VM1_HOST: ${{ secrets.VM1_HOST }}
         VM2_HOST: ${{ secrets.VM2_HOST }}
       run: |
-        echo "$SSH_KEY" > id_rsa
+        printf "%s\n" "$SSH_KEY" > id_rsa
         chmod 600 id_rsa
         eval $(ssh-agent)
         ssh-add id_rsa
