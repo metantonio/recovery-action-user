@@ -16,7 +16,14 @@
 ### 🟠 `verify_and_sync_users.yml` (Without `users.yml`)  
 - **Reference Machine:** `VM1_HOST` (Primary source of truth for user data).  
 - **Action:** Retrieves all user UID/GID data from `VM1_HOST` (excluding system accounts) and verifies against `VM2_HOST`. Also synchronizes home directory files (names, sizes, permissions) from `VM1` to `VM2` using `rsync` (via the runner).
-- **Result:** If a user doesn’t exist or has a UID/GID mismatch, create or update the user on `VM2_HOST`. Files missing or differing in `VM2` are synced from `VM1`. Authentication is host-based (no LDAP).  
+- **Result:** If a user doesn’t exist or has a UID/GID mismatch, create or update the user on `VM2_HOST`. Files missing or differing in `VM2` are synced from `VM1`. Authentication is host-based (no LDAP).
+- **Testing (`test-verify-and-sync` job):**
+  - **Docker-based Mock Environment:** Spins up two Ubuntu containers (`vm1`, `vm2`) to simulate the source and destination VMs.
+  - **Automated Setup:** Installs `openssh-server`, `sudo`, and `rsync` in the containers. Configures SSH keys (ED25519) and `sshd` settings (`StrictModes no`, `PubkeyAuthentication yes`) for passwordless access from the runner.
+  - **Network Aliases:** Localhost ports (2221, 2222) are mapped to container SSH ports. A `~/.ssh/config` file is generated on the runner to alias `vm1` and `vm2`, allowing the script to run unchanged (`bash scripts/verify_and_sync_users.sh "vm1" "vm2"`).
+  - **Execution Control:** When triggering the workflow manually, use the **Execution Mode** input to choose between:
+    - `test`: Runs the verification against the mock Docker environment (No secrets needed).
+    - `production`: Runs against the real VMs defined in secrets.  
 
 ### 🔴 `disaster_recovery.yml` (Without `users.yml`)  
 - **Reference Machines:** Both `VM1_HOST` and `VM2_HOST` are treated as sources of truth.  
