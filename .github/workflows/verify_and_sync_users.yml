@@ -6,7 +6,7 @@ on:
 jobs:
   verify-and-sync:
     runs-on: ubuntu-latest
-
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'  # proper use case for production run
     steps:
     - name: Checkout repository
       uses: actions/checkout@v3
@@ -31,3 +31,113 @@ jobs:
         ssh-add id_rsa
 
         bash scripts/verify_and_sync_users.sh "$VM1_HOST" "$VM2_HOST"
+
+  test-verify-and-sync:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+
+    - name: Install Docker
+      run: |
+        sudo apt-get remove -y containerd
+        sudo apt-get update
+        sudo apt-get install -y apt-transport-https ca-certificates curl software-properties-common
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+        sudo apt-get update
+        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+
+    - name: Setup SSH Keys
+      run: |
+        # Generate a keypair for the runner to use
+        ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N ""
+
+    - name: Setup Mock VMs (Docker Containers)
+      run: |
+        # Create a shared network
+        docker network create local_net
+
+        # --- Setup VM1 (Source) ---
+        docker run -d --name vm1 --hostname vm1 -p 2221:22 --network local_net ubuntu:latest
+        docker exec vm1 bash -c "apt-get update && apt-get install -y openssh-server sudo rsync"
+        docker exec vm1 bash -c "mkdir /var/run/sshd"
+        # Create 'user' for connection
+        docker exec vm1 bash -c "useradd -m -s /bin/bash user && echo 'user:password' | chpasswd && echo 'user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
+        # Configure SSH for 'user'
+        docker exec vm1 bash -c "mkdir -p /home/user/.ssh && chmod 700 /home/user/.ssh"
+        docker cp ~/.ssh/id_rsa.pub vm1:/home/user/.ssh/authorized_keys
+        docker exec vm1 bash -c "chown -R user:user /home/user/.ssh && chmod 600 /home/user/.ssh/authorized_keys"
+        # Start SSH
+        docker exec -d vm1 /usr/sbin/sshd -D
+
+        # --- Setup VM2 (Destination) ---
+        docker run -d --name vm2 --hostname vm2 -p 2222:22 --network local_net ubuntu:latest
+        docker exec vm2 bash -c "apt-get update && apt-get install -y openssh-server sudo rsync"
+        docker exec vm2 bash -c "mkdir /var/run/sshd"
+        # Create 'user' for connection
+        docker exec vm2 bash -c "useradd -m -s /bin/bash user && echo 'user:password' | chpasswd && echo 'user ALL=(ALL) NOPASSWD:ALL' >> /etc/sudoers"
+        # Configure SSH for 'user'
+        docker exec vm2 bash -c "mkdir -p /home/user/.ssh && chmod 700 /home/user/.ssh"
+        docker cp ~/.ssh/id_rsa.pub vm2:/home/user/.ssh/authorized_keys
+        docker exec vm2 bash -c "chown -R user:user /home/user/.ssh && chmod 600 /home/user/.ssh/authorized_keys"
+        # Start SSH
+        docker exec -d vm2 /usr/sbin/sshd -D
+
+    - name: Prepare Test Data on VM1
+      run: |
+        # Create a user to be synced
+        docker exec vm1 bash -c "useradd -u 2001 -m -s /bin/bash testuser_sync"
+        # Create some files for this user
+        docker exec vm1 bash -c "echo 'Important Data' > /home/testuser_sync/data.txt"
+        docker exec vm1 bash -c "mkdir /home/testuser_sync/fldr && touch /home/testuser_sync/fldr/file2"
+        docker exec vm1 bash -c "chown -R testuser_sync:testuser_sync /home/testuser_sync"
+
+    - name: Configure Runner SSH
+      run: |
+        # Configure ~/.ssh/config to map 'vm1' and 'vm2' to localhost ports
+        echo "Host vm1" >> ~/.ssh/config
+        echo "  HostName 127.0.0.1"
+        echo "  Port 2221"
+        echo "  User user"
+        echo "  StrictHostKeyChecking no"
+        echo "" >> ~/.ssh/config
+        echo "Host vm2" >> ~/.ssh/config
+        echo "  HostName 127.0.0.1"
+        echo "  Port 2222"
+        echo "  User user"
+        echo "  StrictHostKeyChecking no"
+        
+        chmod 600 ~/.ssh/config
+
+    - name: Make script executable
+      run: chmod +x scripts/verify_and_sync_users.sh
+
+    - name: Execute Sync Script
+      run: |
+        # Run script targeting the aliases configured in ~/.ssh/config
+        bash scripts/verify_and_sync_users.sh "vm1" "vm2"
+
+    - name: Verify Results
+      run: |
+        echo "Verifying testuser_sync exists on VM2..."
+        docker exec vm2 id testuser_sync || { echo "User testuser_sync NOT found on VM2"; exit 1; }
+        
+        echo "Verifying files synced..."
+        docker exec vm2 ls -l /home/testuser_sync/data.txt || { echo "data.txt missing on VM2"; exit 1; }
+        docker exec vm2 ls -l /home/testuser_sync/fldr/file2 || { echo "fldr/file2 missing on VM2"; exit 1; }
+        
+        echo "Verifying file content..."
+        CONTENT=$(docker exec vm2 cat /home/testuser_sync/data.txt)
+        if [ "$CONTENT" != "Important Data" ]; then
+           echo "Content mismatch: $CONTENT"
+           exit 1
+        fi
+        
+        echo "Test Passed!"
+
+    - name: Cleanup
+      if: always()
+      run: |
+        docker stop vm1 vm2 || true
+        docker rm vm1 vm2 || true

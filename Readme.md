@@ -15,8 +15,8 @@
 
 ### 🟠 `verify_and_sync_users.yml` (Without `users.yml`)  
 - **Reference Machine:** `VM1_HOST` (Primary source of truth for user data).  
-- **Action:** Retrieves all user UID/GID data from `VM1_HOST` (excluding system accounts) and verifies against `VM2_HOST`.  
-- **Result:** If a user doesn’t exist or has a UID/GID mismatch, create or update the user on `VM2_HOST`. Authentication is host-based (no LDAP).  
+- **Action:** Retrieves all user UID/GID data from `VM1_HOST` (excluding system accounts) and verifies against `VM2_HOST`. Also synchronizes home directory files (names, sizes, permissions) from `VM1` to `VM2` using `rsync` (via the runner).
+- **Result:** If a user doesn’t exist or has a UID/GID mismatch, create or update the user on `VM2_HOST`. Files missing or differing in `VM2` are synced from `VM1`. Authentication is host-based (no LDAP).  
 
 ### 🔴 `disaster_recovery.yml` (Without `users.yml`)  
 - **Reference Machines:** Both `VM1_HOST` and `VM2_HOST` are treated as sources of truth.  
