@@ -52,11 +52,11 @@ EOF
   # rsync over ssh with sudo is tricky. For now, assuming standard access or sudo is handled via config if needed. 
   # To keep it simple and consistent with the request "copy missing files... verify names and size", rsync -av is best.
   
-  if rsync -avzq -e "ssh -o StrictHostKeyChecking=no" "user@$VM1_HOST:$home_dir/" "$TEMP_DIR/"; then
+  if rsync -avzq -e "ssh -o StrictHostKeyChecking=no" --rsync-path="sudo rsync" "user@$VM1_HOST:$home_dir/" "$TEMP_DIR/"; then
       echo "  - Successfully pulled files from $VM1_HOST"
       
       # Step 2: Sync from Runner to VM2
-      if rsync -avzq -e "ssh -o StrictHostKeyChecking=no" "$TEMP_DIR/" "user@$VM2_HOST:$home_dir/"; then
+      if rsync -avzq -e "ssh -o StrictHostKeyChecking=no" --rsync-path="sudo rsync" "$TEMP_DIR/" "user@$VM2_HOST:$home_dir/"; then
          echo "  - Successfully pushed files to $VM2_HOST"
       else
          echo "  - FAILED to push files to $VM2_HOST"

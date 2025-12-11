@@ -147,8 +147,14 @@ jobs:
 
     - name: Execute Sync Script
       run: |
-        # Run script targeting the aliases configured in ~/.ssh/config
-        bash scripts/verify_and_sync_users.sh "vm1" "vm2"
+        # Setup root SSH for sudo execution (required to preserve file ownership on Runner)
+        sudo mkdir -p /root/.ssh
+        sudo cp -r ~/.ssh/* /root/.ssh/
+        sudo chown -R root:root /root/.ssh
+        sudo chmod 700 /root/.ssh
+        
+        # Run script as root to allow preserving ownership in temp dir
+        sudo bash scripts/verify_and_sync_users.sh "vm1" "vm2"
 
     - name: Verify Results
       run: |
