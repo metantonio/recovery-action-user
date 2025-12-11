@@ -117,19 +117,21 @@ jobs:
         echo "127.0.0.1 vm1 vm2" | sudo tee -a /etc/hosts
 
         # Configure ~/.ssh/config to map 'vm1' and 'vm2' to localhost ports
-        echo "Host vm1" >> ~/.ssh/config
-        echo "  HostName 127.0.0.1"
-        echo "  Port 2221"
-        echo "  User user"
-        echo "  IdentityFile ~/.ssh/id_ed25519"
-        echo "  StrictHostKeyChecking no"
-        echo "" >> ~/.ssh/config
-        echo "Host vm2" >> ~/.ssh/config
-        echo "  HostName 127.0.0.1"
-        echo "  Port 2222"
-        echo "  User user"
-        echo "  IdentityFile ~/.ssh/id_ed25519"
-        echo "  StrictHostKeyChecking no"
+        cat <<EOF > ~/.ssh/config
+        Host vm1
+          HostName 127.0.0.1
+          Port 2221
+          User user
+          IdentityFile ~/.ssh/id_ed25519
+          StrictHostKeyChecking no
+
+        Host vm2
+          HostName 127.0.0.1
+          Port 2222
+          User user
+          IdentityFile ~/.ssh/id_ed25519
+          StrictHostKeyChecking no
+        EOF
         
         chmod 600 ~/.ssh/config
 
