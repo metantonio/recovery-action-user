@@ -69,7 +69,7 @@ jobs:
         docker network create local_net
 
         # --- Setup VM1 (Source) ---
-        docker run -d --name vm1 --hostname vm1 -p 2221:22 --network local_net ubuntu:latest
+        docker run -d --name vm1 --hostname vm1 -p 2221:22 --network local_net ubuntu:latest sleep infinity
         docker exec vm1 bash -c "apt-get update && apt-get install -y openssh-server sudo rsync"
         docker exec vm1 bash -c "mkdir /var/run/sshd"
         # Create 'user' for connection
@@ -82,7 +82,7 @@ jobs:
         docker exec -d vm1 /usr/sbin/sshd -D
 
         # --- Setup VM2 (Destination) ---
-        docker run -d --name vm2 --hostname vm2 -p 2222:22 --network local_net ubuntu:latest
+        docker run -d --name vm2 --hostname vm2 -p 2222:22 --network local_net ubuntu:latest sleep infinity
         docker exec vm2 bash -c "apt-get update && apt-get install -y openssh-server sudo rsync"
         docker exec vm2 bash -c "mkdir /var/run/sshd"
         # Create 'user' for connection
