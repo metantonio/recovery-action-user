@@ -1,4 +1,7 @@
-# GitHub Action Test  
+# Migration of users from one virtual machine to another 
+
+<img src="portada.png" alt="GitHub Action Test">
+
 ### Verify users on two different virtual machines running Linux (Red Hat/Ubuntu).  
 
 ## 📌 Workflows Overview  
